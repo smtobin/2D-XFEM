@@ -110,14 +110,14 @@ Vec6r Mesh::_elementInternalForce(unsigned e_idx) const
 
     // calculate first Piola-Kirchhoff stress (dE/dF)
     Real J = F.determinant();
-    Mat2r P = lambda*(J - 1)*J*F.transpose().inverse() + mu*F;
+    Mat2r P = lambda*(J - 1 - mu/lambda)*J*F.transpose().inverse() + mu*F;
     
     // compute internal forces
     Mat2r G = P*elem.Dm_inv.transpose();
     Vec6r f;
-    f.block<2,1>(0,0) = elem.A0 * (G.col(0) + G.col(1));
-    f.block<2,1>(2,0) = -elem.A0 * G.col(0);
-    f.block<2,1>(4,0) = -elem.A0 * G.col(1); 
+    f.block<2,1>(0,0) = -elem.A0 * (G.col(0) + G.col(1));
+    f.block<2,1>(2,0) = elem.A0 * G.col(0);
+    f.block<2,1>(4,0) = elem.A0 * G.col(1); 
     return f;
 }
 
@@ -167,8 +167,8 @@ Mat6r Mesh::_elementStiffnessMatrix(unsigned e_idx) const
                 {
                     unsigned q = 2*j + B;
 
-                    C(p,q) = lambda * (2*J - 1) * J * F_invT(i, A) * F_invT(j, B)
-                            - lambda * (J - 1) * J * F_invT(i, B) * F_invT(j, A)
+                    C(p,q) = lambda * (2*J - 1 - mu/lambda) * J * F_invT(i, A) * F_invT(j, B)
+                            - lambda * (J - 1 - mu/lambda) * J * F_invT(i, B) * F_invT(j, A)
                             + mu * (i == j) * (A == B);
                 }
             }

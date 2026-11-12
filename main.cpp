@@ -1,6 +1,7 @@
 #include "common.hpp"
 #include "mesh.hpp"
 #include "solver.hpp"
+#include "visualization.hpp"
 
 #include <iostream>
 
@@ -15,6 +16,7 @@ int main()
     // create mesh
     unsigned elems_per_side = 3;
     Mesh mesh(1, elems_per_side, lambda, mu);
+    Mesh initial_mesh = mesh;
 
     // create solver
     Solver solver(&mesh);
@@ -26,7 +28,7 @@ int main()
     }
 
     // apply force to top-left node
-    solver.setNodeExternalForce(mesh.nodes.size()-1, Vec2r(1,0));
+    solver.setNodeExternalForce(mesh.nodes.size()-1, Vec2r(10,0));
 
     solver.solve();
 
@@ -34,4 +36,9 @@ int main()
     {
         std::cout << "Node " << i << ": " << mesh.nodes[i].transpose() << std::endl;
     }
+
+    std::vector<const Mesh*> meshes = {&initial_mesh, &mesh};
+    std::vector<std::string> mesh_names = {"Undeformed", "Deformed"};
+    Visualization viz(meshes, mesh_names);
+    viz.show();
 }

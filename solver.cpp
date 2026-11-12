@@ -43,7 +43,7 @@ void Solver::solve()
         }
 
         // compute residual
-        VecXr res = f_int - f_ext;
+        VecXr res = f_ext - f_int;
 
         // compute position update
         VecXr dx = K.llt().solve(res);

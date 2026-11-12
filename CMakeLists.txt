@@ -26,7 +26,7 @@ if (NOT VTK_FOUND)
   message(FATAL_ERROR "Unable to find the VTK build folder.")
 endif()
 
-add_executable(Run main.cpp mesh.cpp solver.cpp)
+add_executable(Run main.cpp mesh.cpp solver.cpp visualization.cpp)
 target_link_libraries(Run Eigen3::Eigen ${VTK_LIBRARIES})
 
 add_executable(TestNeoHookean test_neohookean.cpp element.cpp)
