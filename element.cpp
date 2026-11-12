@@ -14,7 +14,7 @@ TriangleElement::TriangleElement(const Vec2r* node1, const Vec2r* node2, const V
     Dm_inv = Dm.inverse();
 
     // element undeformed area
-    A0 = 0.5*Dm.determinant();
+    A0 = 0.5*std::abs(Dm.determinant());
 }
 
 Vec6r TriangleElement::internalForce() const

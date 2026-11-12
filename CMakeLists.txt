@@ -29,6 +29,9 @@ endif()
 add_executable(Run main.cpp element.cpp)
 target_link_libraries(Run Eigen3::Eigen ${VTK_LIBRARIES})
 
+add_executable(TestNeoHookean test_neohookean.cpp element.cpp)
+target_link_libraries(TestNeoHookean Eigen3::Eigen)
+
 vtk_module_autoinit(
   TARGETS Run
   MODULES ${VTK_LIBRARIES}
