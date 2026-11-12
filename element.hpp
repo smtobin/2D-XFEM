@@ -1,3 +1,5 @@
+#pragma once
+
 #include "common.hpp"
 
 /** Represents a planar linear triangular element with Neo-Hookean energy.
