@@ -26,7 +26,7 @@ if (NOT VTK_FOUND)
   message(FATAL_ERROR "Unable to find the VTK build folder.")
 endif()
 
-add_executable(Run main.cpp)
+add_executable(Run main.cpp element.cpp)
 target_link_libraries(Run Eigen3::Eigen ${VTK_LIBRARIES})
 
 vtk_module_autoinit(
