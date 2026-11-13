@@ -2,6 +2,7 @@
 
 #include "common.hpp"
 #include "mesh.hpp"
+#include "visualization_mesh.hpp"
 
 #include <vtkSmartPointer.h>
 
@@ -78,6 +79,7 @@ struct Visualization
 {
     std::vector<const Mesh*> meshes;
     std::vector<std::string> mesh_names;
+    std::vector<VisualizationMesh> viz_meshes;
 
     std::vector<vtkSmartPointer<vtkUnstructuredGrid>> mesh_grids;
     std::vector<vtkSmartPointer<vtkActor>> mesh_actors;

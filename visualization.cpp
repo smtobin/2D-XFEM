@@ -14,12 +14,14 @@
 Visualization::Visualization(const std::vector<const Mesh*>& meshes_, const std::vector<std::string>& mesh_names_)
     : meshes(meshes_)
     , mesh_names(mesh_names_)
+    , viz_meshes(meshes_.size())
     , mesh_grids(meshes_.size())
     , mesh_actors(meshes_.size())
     , node_actors(meshes_.size())
 {
     for (unsigned i = 0; i < meshes.size(); i++)
     {
+        viz_meshes[i].rebuildTopology(*meshes[i]);
         mesh_grids[i] = vtkSmartPointer<vtkUnstructuredGrid>::New();
         mesh_actors[i] = vtkSmartPointer<vtkActor>::New();
         node_actors[i] = vtkSmartPointer<vtkActor>::New();
@@ -38,12 +40,14 @@ Visualization::Visualization(const std::vector<const Mesh*>& meshes_, const std:
 
 void Visualization::_createVTKGrid(unsigned m_idx)
 {
-    vtkSmartPointer<vtkPoints> points =
-        vtkSmartPointer<vtkPoints>::New();
+    vtkSmartPointer<vtkPoints> points = vtkSmartPointer<vtkPoints>::New();
 
     // Insert mesh nodes.
-    const Mesh& mesh = *meshes[m_idx];
-    for (const Vec2r& node : mesh.nodes)
+    const VisualizationMesh& mesh = viz_meshes[m_idx];
+    std::vector<Vec2r> nodes;
+    mesh.updatePositions(*meshes[m_idx], nodes);
+
+    for (const Vec2r& node : nodes)
     {
         points->InsertNextPoint(
             static_cast<double>(node(0)),
@@ -55,16 +59,13 @@ void Visualization::_createVTKGrid(unsigned m_idx)
     mesh_grids[m_idx]->SetPoints(points);
 
     // Insert triangular elements.
-    for (const TriangleElement& element : mesh.elements)
+    for (const auto& cell : mesh.cells)
     {
-        vtkIdType ids[3] =
-        {
-            static_cast<vtkIdType>(element.nodes[0]),
-            static_cast<vtkIdType>(element.nodes[1]),
-            static_cast<vtkIdType>(element.nodes[2])
-        };
+        std::vector<vtkIdType> ids;
+        for (const auto& id : cell)
+            ids.push_back(static_cast<vtkIdType>(id));
 
-        mesh_grids[m_idx]->InsertNextCell(VTK_TRIANGLE, 3, ids);
+        mesh_grids[m_idx]->InsertNextCell(VTK_POLYGON, static_cast<vtkIdType>(cell.size()), ids.data());
     }
 
     mesh_grids[m_idx]->Modified();
@@ -88,13 +89,12 @@ void Visualization::_setupMeshAndNodeActor(unsigned m_idx)
     mesh_actor->GetProperty()->EdgeVisibilityOn();
 
     // Node visualization.
-    vtkSmartPointer<vtkPolyData> node_data =
-        vtkSmartPointer<vtkPolyData>::New();
+    vtkSmartPointer<vtkPolyData> node_data = vtkSmartPointer<vtkPolyData>::New();
+    vtkSmartPointer<vtkPoints> node_points = vtkSmartPointer<vtkPoints>::New();
 
-    vtkSmartPointer<vtkPoints> node_points =
-        vtkSmartPointer<vtkPoints>::New();
-
-    for (const Vec2r& node : meshes[m_idx]->nodes)
+    std::vector<Vec2r> nodes;
+    viz_meshes[m_idx].updatePositions(*meshes[m_idx], nodes);
+    for (const Vec2r& node : nodes)
     {
         node_points->InsertNextPoint(
             static_cast<double>(node(0)),

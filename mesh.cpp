@@ -130,12 +130,12 @@ VecXr Mesh::assembleInternalForces() const
 }
 
 
-Vec6r Mesh::_elementFragmentInternalForce(const TriangleElement& elem, const TriangleElementFragment& f) const
+Vec6r Mesh::_elementFragmentInternalForce(const TriangleElement& elem, const TriangleElementFragment& frag) const
 {
     // get current nodal positions
-    const Vec2r& p1 = nodes[f.nodes[0]];
-    const Vec2r& p2 = nodes[f.nodes[1]];
-    const Vec2r& p3 = nodes[f.nodes[2]];
+    const Vec2r& p1 = nodes[frag.nodes[0]];
+    const Vec2r& p2 = nodes[frag.nodes[1]];
+    const Vec2r& p3 = nodes[frag.nodes[2]];
 
     // calculate deformation gradient
     Mat2r Ds;
@@ -150,18 +150,18 @@ Vec6r Mesh::_elementFragmentInternalForce(const TriangleElement& elem, const Tri
     // compute internal forces
     Mat2r G = P*elem.Dm_inv.transpose();
     Vec6r force;
-    force.block<2,1>(0,0) = -elem.A0 * (G.col(0) + G.col(1));
-    force.block<2,1>(2,0) = elem.A0 * G.col(0);
-    force.block<2,1>(4,0) = elem.A0 * G.col(1); 
+    force.block<2,1>(0,0) = -frag.A0 * (G.col(0) + G.col(1));
+    force.block<2,1>(2,0) = frag.A0 * G.col(0);
+    force.block<2,1>(4,0) = frag.A0 * G.col(1); 
     return force;
 }
 
-Mat6r Mesh::_elementFragmentStiffnessMatrix(const TriangleElement& elem, const TriangleElementFragment& f) const
+Mat6r Mesh::_elementFragmentStiffnessMatrix(const TriangleElement& elem, const TriangleElementFragment& frag) const
 {
     // get current nodal positions
-    const Vec2r& p1 = nodes[f.nodes[0]];
-    const Vec2r& p2 = nodes[f.nodes[1]];
-    const Vec2r& p3 = nodes[f.nodes[2]];
+    const Vec2r& p1 = nodes[frag.nodes[0]];
+    const Vec2r& p2 = nodes[frag.nodes[1]];
+    const Vec2r& p3 = nodes[frag.nodes[2]];
 
     // calculate deformation gradient
     Mat2r Ds;
@@ -208,7 +208,7 @@ Mat6r Mesh::_elementFragmentStiffnessMatrix(const TriangleElement& elem, const T
         }
     }
 
-    Mat6r Ke = elem.A0 * B.transpose() * C * B;
+    Mat6r Ke = frag.A0 * B.transpose() * C * B;
     return Ke;
 }
 
