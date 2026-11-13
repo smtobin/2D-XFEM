@@ -64,6 +64,18 @@ struct Cut
 };
 
 
+/** A simple Dirichlet BC on an edge of the mesh.
+ * Note: this is not general enough to handle multiple cuts per element or other more complex things.
+ * Works for linear triangles, which is good enough for me.
+ */
+struct DirichletEdgeBC
+{
+    Edge edge;
+    Vec2r prescribed_p1;    // prescribed position of n1 in the Edge
+    Vec2r prescribed_p2;    // prescribed position of n2 in the Edge
+};
+
+
 /** Stores and does computations on a collection of triangle elements. */
 struct Mesh
 {
@@ -86,6 +98,13 @@ struct Mesh
      */
     std::unordered_set<Edge, EdgeHash> edges;
 
+    /** Track which nodes have displacement BCs */
+    std::unordered_set<unsigned> nodes_w_displacement_BCs;
+
+    /** Dirichlet BC storage  */
+    // std::vector<DirichletEdgeBC> dirichlet_BCs;
+    std::unordered_map<Edge, std::pair<Vec2r, Vec2r>, EdgeHash> dirichlet_BCs;
+
     /** Material properties - Lame parameters */
     Real lambda;
     Real mu;
@@ -105,7 +124,15 @@ struct Mesh
     /** Assembles global internal force vector */
     VecXr assembleInternalForces() const;
 
-    /** Adds a cut to the mesh. */
+    /** Adds a cut to the mesh.
+     * Assumes all boundary conditions have been already assigned.
+     */
     void addCut(const Cut& cut);
+
+    /** Prescribes a displacement boundary condition. */
+    void setNodePosition(unsigned n_idx, const Vec2r& p) { nodes[n_idx] = p; nodes_w_displacement_BCs.insert(n_idx); }
+
+    /** Prescribes a node to be fixed (i.e. zero displacement) */
+    void setNodeFixed(unsigned n_idx) { nodes_w_displacement_BCs.insert(n_idx); }
 
 };

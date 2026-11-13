@@ -25,7 +25,7 @@ void Solver::solve()
         VecXr f_int = mesh->assembleInternalForces();
 
         // zero out rows/columns corresponding to nodes with displacement BCs
-        for (unsigned n_idx : nodes_w_displacement_BC)
+        for (unsigned n_idx : mesh->nodes_w_displacement_BCs)
         {
             // zero out rows/cols in stiffness matrix
             K.row(2*n_idx) = VecXr::Zero(2*mesh->nodes.size());

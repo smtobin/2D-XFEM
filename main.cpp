@@ -18,23 +18,27 @@ int main()
     Mesh mesh(1, elems_per_side, lambda, mu);
     unsigned topright = mesh.nodes.size()-1;
 
+    // fix left edge
+    for (unsigned i = 0; i < elems_per_side+1; i++)
+    {
+        mesh.setNodeFixed(i);
+    }
+
+    Mesh initial_mesh = mesh;
+
     Cut cut;
     cut.p1 = Vec2r(-1, 0.5);
     cut.p2 = Vec2r(5, 0.5);
     mesh.addCut(cut);
 
-    Mesh initial_mesh = mesh;
+    
 
     // create solver
     Solver solver(&mesh);
 
-    // fix bottom edge
-    for (unsigned i = 0; i < elems_per_side+1; i++)
-    {
-        solver.setNodeFixed(i);
-    }
+    
 
-    // apply force to top-left node
+    // apply force to top-right node
     solver.setNodeExternalForce(topright, Vec2r(0,1));
 
     solver.solve();

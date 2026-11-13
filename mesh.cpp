@@ -315,7 +315,7 @@ void Mesh::addCut(const Cut& cut)
         assert(num_cut == 2);
 
         // the uncut edge
-        int u = !is_cut[0] ? 0 : (!is_cut[1] ? 1 : 2);
+        unsigned u = !is_cut[0] ? 0 : (!is_cut[1] ? 1 : 2);
         // the lone vertex
         int L = (u + 2) % 3;
         // the other vertices
@@ -332,19 +332,41 @@ void Mesh::addCut(const Cut& cut)
         // helper to make element fragment
         auto make_fragment = [&](bool side_pos, std::vector<Vec2r> poly)
         {
-            TriangleElementFragment f;
+            TriangleElementFragment frag;
             for (unsigned v = 0; v < 3; v++)
             {
                 unsigned orig = el.nodes[v];
                 bool v_pos = sd[orig] > 0;
                 // if vertex i in the element is on the same side of the cut, use the original node
                 // otherwise, use the phantom node instead of the original node
-                f.nodes[v] = (v_pos == side_pos) ? orig : get_phantom(orig);    // creates a phantom if not created already
+                frag.nodes[v] = (v_pos == side_pos) ? orig : get_phantom(orig);    // creates a phantom if not created already
             }
 
-            f.A0 = 2 * el.A0 * _polygonArea(poly);
-            f.region_barys = std::move(poly);
-            return f;
+            // check for fixed edges - if the newly created fragment overlaps a fixed edge, we must constrain the newly created phantom node
+            for (unsigned k = 0; k < 3; k++)
+            {
+                unsigned a = k;
+                unsigned b = (k+1)%3;
+                if (nodes_w_displacement_BCs.count(el.nodes[a]) + nodes_w_displacement_BCs.count(el.nodes[b]) < 2)
+                    continue;
+                bool on_edge = (poly.size() == 3 && k != u)     // for the triangle fragment, it is on the edge unless k is the uncut edge
+                                || (poly.size() == 4);          // the quad fragment is on all 3 edges of the original triangle
+                
+                // the fragment is on the edge, and it is fixed
+                if (on_edge)
+                {
+                    // mark nodes as being fixed
+                    nodes_w_displacement_BCs.insert(frag.nodes[a]);
+                    nodes_w_displacement_BCs.insert(frag.nodes[b]);
+                    // set node positions to their prescribed values
+                    nodes[frag.nodes[a]] = nodes[el.nodes[a]];
+                    nodes[frag.nodes[b]] = nodes[el.nodes[b]];
+                }
+            }
+
+            frag.A0 = 2 * el.A0 * _polygonArea(poly);
+            frag.region_barys = std::move(poly);
+            return frag;
         };
 
         el.fragments.clear();
