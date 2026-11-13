@@ -1,5 +1,7 @@
 #include "mesh.hpp"
 
+#include <unordered_map>
+
 Mesh::Mesh(Real side_length, unsigned num_elements_per_side, Real lambda_, Real mu_)
     : lambda(lambda_)
     , mu(mu_)
@@ -14,6 +16,9 @@ Mesh::Mesh(Real side_length, unsigned num_elements_per_side, Real lambda_, Real 
             nodes.emplace_back(i*elem_side_length, j*elem_side_length);
         }
     }
+
+    // save initial mesh state
+    initial_nodes = nodes;
 
     // create elements for square mesh
     // iterate through the grid and create two triangles per square
@@ -31,6 +36,9 @@ Mesh::Mesh(Real side_length, unsigned num_elements_per_side, Real lambda_, Real 
             _createElement(s1, s3, s4);
         }
     }
+
+    // create the edges list
+    _createEdgesList();
 }
 
 void Mesh::_createElement(unsigned n1, unsigned n2, unsigned n3)
@@ -49,7 +57,27 @@ void Mesh::_createElement(unsigned n1, unsigned n2, unsigned n3)
     // element undeformed area
     new_elem.A0 = 0.5*std::abs(Dm.determinant());
 
+    // create a single fragment for the element
+    TriangleElementFragment f;
+    f.A0 = new_elem.A0;
+    f.nodes[0] = new_elem.nodes[0];
+    f.nodes[1] = new_elem.nodes[1];
+    f.nodes[2] = new_elem.nodes[2];
+    f.region_barys = { Vec2r(0,0), Vec2r(1,0), Vec2r(0,1) };
+    new_elem.fragments.push_back(f);
+
     elements.push_back(std::move(new_elem));
+}
+
+void Mesh::_createEdgesList()
+{
+    edges.clear();
+    for (const auto& elem : elements)
+    {
+        edges.emplace(elem.nodes[0], elem.nodes[1]);
+        edges.emplace(elem.nodes[0], elem.nodes[2]);
+        edges.emplace(elem.nodes[1], elem.nodes[2]);
+    }
 }
 
 
@@ -61,14 +89,19 @@ MatXr Mesh::assembleStiffnessMatrix() const
     {
         const TriangleElement& elem = elements[e_idx];
 
-        Mat6r Ke = _elementStiffnessMatrix(e_idx);
-        for (unsigned i = 0; i < 3; i++)
+        /** TODO: iterate over fragments, not just elements */
+        for (const auto& frag : elem.fragments)
         {
-            for (unsigned j = 0; j < 3; j++)
+            Mat6r Ke = _elementFragmentStiffnessMatrix(elem, frag);
+            for (unsigned i = 0; i < 3; i++)
             {
-                K.block<2,2>(2*elem.nodes[i], 2*elem.nodes[j]) += Ke.block<2,2>(2*i, 2*j);
+                for (unsigned j = 0; j < 3; j++)
+                {
+                    K.block<2,2>(2*frag.nodes[i], 2*frag.nodes[j]) += Ke.block<2,2>(2*i, 2*j);
+                }
             }
         }
+        
     }
 
     return K;
@@ -82,25 +115,27 @@ VecXr Mesh::assembleInternalForces() const
     {
         const TriangleElement& elem = elements[e_idx];
 
-        Vec6r fe = _elementInternalForce(e_idx);
-        for (unsigned i = 0; i < 3; i++)
+        for (const auto& frag : elem.fragments)
         {
-            f.block<2,1>(2*elem.nodes[i], 0) += fe.block<2,1>(2*i, 0);
+            Vec6r fe = _elementFragmentInternalForce(elem, frag);
+            for (unsigned i = 0; i < 3; i++)
+            {
+                f.block<2,1>(2*frag.nodes[i], 0) += fe.block<2,1>(2*i, 0);
+            }
         }
+        
     }
 
     return f;
 }
 
 
-Vec6r Mesh::_elementInternalForce(unsigned e_idx) const
+Vec6r Mesh::_elementFragmentInternalForce(const TriangleElement& elem, const TriangleElementFragment& f) const
 {
-    const TriangleElement& elem = elements[e_idx];
-
     // get current nodal positions
-    const Vec2r& p1 = nodes[elem.nodes[0]];
-    const Vec2r& p2 = nodes[elem.nodes[1]];
-    const Vec2r& p3 = nodes[elem.nodes[2]];
+    const Vec2r& p1 = nodes[f.nodes[0]];
+    const Vec2r& p2 = nodes[f.nodes[1]];
+    const Vec2r& p3 = nodes[f.nodes[2]];
 
     // calculate deformation gradient
     Mat2r Ds;
@@ -114,21 +149,19 @@ Vec6r Mesh::_elementInternalForce(unsigned e_idx) const
     
     // compute internal forces
     Mat2r G = P*elem.Dm_inv.transpose();
-    Vec6r f;
-    f.block<2,1>(0,0) = -elem.A0 * (G.col(0) + G.col(1));
-    f.block<2,1>(2,0) = elem.A0 * G.col(0);
-    f.block<2,1>(4,0) = elem.A0 * G.col(1); 
-    return f;
+    Vec6r force;
+    force.block<2,1>(0,0) = -elem.A0 * (G.col(0) + G.col(1));
+    force.block<2,1>(2,0) = elem.A0 * G.col(0);
+    force.block<2,1>(4,0) = elem.A0 * G.col(1); 
+    return force;
 }
 
-Mat6r Mesh::_elementStiffnessMatrix(unsigned e_idx) const
+Mat6r Mesh::_elementFragmentStiffnessMatrix(const TriangleElement& elem, const TriangleElementFragment& f) const
 {
-    const TriangleElement& elem = elements[e_idx];
-
     // get current nodal positions
-    const Vec2r& p1 = nodes[elem.nodes[0]];
-    const Vec2r& p2 = nodes[elem.nodes[1]];
-    const Vec2r& p3 = nodes[elem.nodes[2]];
+    const Vec2r& p1 = nodes[f.nodes[0]];
+    const Vec2r& p2 = nodes[f.nodes[1]];
+    const Vec2r& p3 = nodes[f.nodes[2]];
 
     // calculate deformation gradient
     Mat2r Ds;
@@ -177,4 +210,148 @@ Mat6r Mesh::_elementStiffnessMatrix(unsigned e_idx) const
 
     Mat6r Ke = elem.A0 * B.transpose() * C * B;
     return Ke;
+}
+
+
+Real _polygonArea(const std::vector<Vec2r>& poly)
+{
+    Real a = 0;
+    for (size_t i = 0; i < poly.size(); i++) 
+    {
+        const Vec2r& p = poly[i];
+        const Vec2r& q = poly[(i + 1) % poly.size()];
+        a += p[0] * q[1] - q[0] * p[1];
+    }
+    return 0.5 * a;   // positive for CCW
+}
+
+void Mesh::addCut(const Cut& cut)
+{
+    cuts.push_back(cut);
+
+    const Vec2r d = cut.p2 - cut.p1;
+    const Real len2 = d.dot(d);
+    const Real len = std::sqrt(len2);
+    const Vec2r n(d[1] / len, -d[0] / len);   // unit normal
+    const Real eps = 1e-9 * len;
+
+    // loop through nodes and compute signed distance of node relative to cut
+    std::vector<Real> sd(initial_nodes.size());
+    for (unsigned n_idx = 0; n_idx < sd.size(); n_idx++)
+    {
+        Real sd_i = n.dot(initial_nodes[n_idx] - cut.p1);
+        if (std::abs(sd_i) < eps) sd_i = eps;
+        sd[n_idx] = sd_i;
+    }
+
+    // loop through edges and find cut edges
+    // if cut, calculate interpolation parameter where intersection is
+    std::unordered_map<Edge, Real, EdgeHash> cut_edges;
+    for (const Edge& e : edges)
+    {
+        Real sd1 = sd[e.n1];
+        Real sd2 = sd[e.n2];
+
+        // both nodes on the same "side" of the cut, continue
+        if ((sd1 > 0) == (sd2 > 0))
+            continue;
+
+        // get location of cut as interpolation parameter in (0,1)
+        // t defined as going from lower index (n1) to higher index (n2)
+        Real t = sd1 / (sd1 - sd2);
+
+        // ensure that the cut makes it through this edge
+        Vec2r p = initial_nodes[e.n1] + t * (initial_nodes[e.n2] - initial_nodes[e.n1]);
+        Real tau = (p - cut.p1).dot(d) / len2;
+        if (tau < 0 || tau > 1)
+            continue;
+
+        cut_edges[e] = t;
+    }
+
+    // create phantom nodes lazily, one per original node
+    std::vector<int> phantom_of(sd.size(), -1);
+    auto get_phantom = [&](unsigned i) -> unsigned {
+        if (phantom_of[i] < 0)
+        {
+            phantom_of[i] = nodes.size();
+            nodes.push_back(nodes[i]);
+            initial_nodes.push_back(initial_nodes[i]);
+        }
+        return static_cast<unsigned>(phantom_of[i]);
+    };
+
+    // barycentric coordinates of vertices
+    const Vec2r V[3] = { Vec2r(0, 0), Vec2r(1, 0), Vec2r(0, 1) };
+
+    // loop through elements and identify which ones have been fully cut (2 edges intersected by the cut)
+    // for elements that have been fully cut, compute the element fragments
+    for (auto& el : elements)
+    {
+        bool is_cut[3];
+        Real t_edge[3];
+        unsigned num_cut = 0;
+        for (unsigned k = 0; k < 3; k++)
+        {
+            // edge k in the element goes from node k to (k+1)%3 
+            unsigned a = el.nodes[k];
+            unsigned b = el.nodes[(k+1)%3];
+
+            // check if this edge has been cut
+            auto it = cut_edges.find(Edge(a,b));
+            is_cut[k] = (it != cut_edges.end());
+
+            // if so, store the intersection point
+            if (is_cut[k])
+            {
+                num_cut++;
+                t_edge[k] = (a < b) ? it->second : 1 - it->second;
+            }
+        }
+        
+        if (num_cut < 2)
+            continue;
+
+        assert(num_cut == 2);
+
+        // the uncut edge
+        int u = !is_cut[0] ? 0 : (!is_cut[1] ? 1 : 2);
+        // the lone vertex
+        int L = (u + 2) % 3;
+        // the other vertices
+        int A = (L + 1) % 3;
+        int B = (L + 2) % 3;
+
+        // edge L goes L->A, edge B goes B->L
+        Vec2r P_LA = V[L] + t_edge[L] * (V[A] - V[L]);
+        Vec2r P_BL = V[B] + t_edge[B] * (V[L] - V[B]);
+
+        // whether or not L is on "positive" side of cut
+        bool L_pos = sd[el.nodes[L]] > 0;
+
+        // helper to make element fragment
+        auto make_fragment = [&](bool side_pos, std::vector<Vec2r> poly)
+        {
+            TriangleElementFragment f;
+            for (unsigned v = 0; v < 3; v++)
+            {
+                unsigned orig = el.nodes[v];
+                bool v_pos = sd[orig] > 0;
+                // if vertex i in the element is on the same side of the cut, use the original node
+                // otherwise, use the phantom node instead of the original node
+                f.nodes[v] = (v_pos == side_pos) ? orig : get_phantom(orig);    // creates a phantom if not created already
+            }
+
+            f.A0 = 2 * el.A0 * _polygonArea(poly);
+            f.region_barys = std::move(poly);
+            return f;
+        };
+
+        el.fragments.clear();
+        // create the two element fragments created by this cut through the element
+        el.fragments.push_back(make_fragment(L_pos, { V[L], P_LA, P_BL } ));
+        el.fragments.push_back(make_fragment(!L_pos, { P_LA, V[A], V[B], P_BL }));
+
+        assert(std::abs(el.fragments[0].A0 + el.fragments[1].A0 - el.A0) < 1e-9 * el.A0);
+    }
 }
