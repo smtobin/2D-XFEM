@@ -240,7 +240,7 @@ void Mesh::addCut(const Cut& cut)
     for (unsigned n_idx = 0; n_idx < sd.size(); n_idx++)
     {
         Real sd_i = n.dot(initial_nodes[n_idx] - cut.p1);
-        if (std::abs(sd_i) < eps) sd_i = eps;
+        if (std::abs(sd_i) < eps) sd_i = eps;   // snap nodes to one side of cut
         sd[n_idx] = sd_i;
     }
 

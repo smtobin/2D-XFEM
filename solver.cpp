@@ -46,7 +46,26 @@ void Solver::solve()
         VecXr res = f_ext - f_int;
 
         // compute position update
-        VecXr dx = K.llt().solve(res);
+        // VecXr dx = K.llt().solve(res);
+
+        // basic diagonal preconditioning
+        VecXr d = K.diagonal().array().sqrt().inverse();
+        // MatXr S = d.asDiagonal();
+
+        // scale system
+        MatXr Kscaled = d.asDiagonal() * K * d.asDiagonal();
+        VecXr bscaled = d.asDiagonal() * res;
+
+        // solve
+        VecXr y = Kscaled.ldlt().solve(bscaled);
+
+        Real rcond_K = K.ldlt().rcond();
+        Real rcond_Kscaled = Kscaled.ldlt().rcond();
+        std::cout << "K rcond: " << rcond_K << std::endl;
+        std::cout << "Kscaled rcond: " << rcond_Kscaled << std::endl;
+
+        // Transform solution back
+        VecXr dx = d.asDiagonal() * y;
 
         // update positions
         for (unsigned n_idx = 0; n_idx < mesh->nodes.size(); n_idx++)

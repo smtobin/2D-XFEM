@@ -14,7 +14,7 @@ int main()
     Real mu = E / (2*(1+nu));
 
     // create mesh
-    unsigned elems_per_side = 3;
+    unsigned elems_per_side = 4;
     Mesh mesh(1, elems_per_side, lambda, mu);
     unsigned topright = mesh.nodes.size()-1;
 
@@ -28,7 +28,7 @@ int main()
 
     Cut cut;
     cut.p1 = Vec2r(-1, 0.5);
-    cut.p2 = Vec2r(5, 0.5);
+    cut.p2 = Vec2r(1, 0.9);
     mesh.addCut(cut);
 
     
